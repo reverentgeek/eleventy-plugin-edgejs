@@ -4,6 +4,9 @@
 	"description": "Eleventy plugin for Edge.js templating",
 	"type": "module",
 	"main": "edgeJsPlugin.js",
+	"exports": {
+		".": "./edgeJsPlugin.js"
+	},
 	"files": [
 		"edgeJsPlugin.js"
 	],
@@ -24,6 +27,14 @@
 		"node": ">=22.0.0"
 	},
 	"author": "David Neal <david@reverentgeek.com> (https://reverentgeek.com)",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/reverentgeek/eleventy-plugin-edgejs"
+	},
+	"bugs": {
+		"url": "https://github.com/reverentgeek/eleventy-plugin-edgejs/issues"
+	},
+	"homepage": "https://github.com/reverentgeek/eleventy-plugin-edgejs#readme",
 	"license": "MIT",
 	"dependencies": {
 		"edge.js": "^6.2.0"
