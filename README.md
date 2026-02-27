@@ -12,6 +12,9 @@ npm install eleventy-plugin-edgejs
 
 ## Usage
 
+> [!TIP]
+> This repository includes a working Eleventy site with more template and syntax examples. Browse the [example source](./example) or see the [Example Site](#example-site) section for instructions on running it locally.
+
 Register the plugin in your Eleventy config file:
 
 ```js
@@ -280,6 +283,19 @@ In your layout file (`_includes/layout.edge`):
 </body>
 </html>
 ```
+
+## Example Site
+
+This repository includes a working Eleventy site with more template and syntax examples. To run it locally:
+
+```sh
+git clone https://github.com/reverentgeek/eleventy-plugin-edgejs.git
+cd eleventy-plugin-edgejs
+npm install
+npm run start:example
+```
+
+This starts a local dev server so you can browse the examples and experiment with Edge.js templates.
 
 ## Further Reading
 
