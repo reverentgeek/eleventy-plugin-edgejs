@@ -1,6 +1,62 @@
 ---
 title: About
 layout: layout.edge
+tags: []
 ---
 <h1>About</h1>
-<p>This site is built with Eleventy and Edge.js templates.</p>
+<p>This site is built with Eleventy and Edge.js templates. It's also built with love, caffeine, and an unreasonable number of curly braces.</p>
+
+<h2>Loops</h2>
+<h3>The Hall of Legends (Array Loop)</h3>
+<ul>
+@each( member in site.team )
+  <li><strong>{{ member.name }}</strong> &mdash; {{ member.role }} &mdash; <em>"{{ member.joke }}"</em></li>
+@end
+</ul>
+
+<h3>Ranked by How Much Coffee They Drink (Loop with Index)</h3>
+<table>
+  <thead><tr><th>Rank</th><th>Legend</th><th>Title</th></tr></thead>
+  <tbody>
+@each( ( member, index ) in site.team )
+    <tr><td>{{ index + 1 }}</td><td>{{ member.name }}</td><td>{{ member.role }}</td></tr>
+@end
+  </tbody>
+</table>
+
+<h3>Tech Stack (Loop over Object Entries)</h3>
+<dl>
+@each( ( value, key ) in site.features )
+  <dt>{{ key }}</dt>
+  <dd>{{ value }}</dd>
+@end
+</dl>
+
+<h3>Empty Fallback &mdash; The Void Stares Back</h3>
+<ul>
+@each( tag in tags )
+  <li>{{ tag }}</li>
+@else
+  <li>No tags found. This page is untaggable. Like a greased-up exception in a try/catch.</li>
+@end
+</ul>
+
+<h2>Dad Joke Reel (another loop!)</h2>
+<ol>
+@each( joke in site.dadJokes )
+  <li>{{ joke }}</li>
+@end
+</ol>
+
+<h2>Variables</h2>
+@let( greeting = 'Greetings from ' + site.title + '!' )
+<p>@let: {{ greeting }}</p>
+
+@assign( greeting = 'Wait, I changed my mind: ' + reverse( site.title ) + '!' )
+<p>@assign: {{ greeting }}</p>
+<p><small>(@assign is like @let but for when you have commitment issues.)</small></p>
+
+<h2>Unless</h2>
+@unless( tags.length )
+<p>This page has no tags. It's living life on the edge, completely unlabeled. Like a mystery can in the pantry.</p>
+@end

@@ -4,6 +4,9 @@
 	"description": "Eleventy plugin for Edge.js templating",
 	"type": "module",
 	"main": "edgeJsPlugin.js",
+	"files": [
+		"edgeJsPlugin.js"
+	],
 	"scripts": {
 		"build:example": "npx @11ty/eleventy --input=example/src --config=example/eleventy.config.js",
 		"lint": "eslint . --fix",

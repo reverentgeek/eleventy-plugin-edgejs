@@ -468,6 +468,87 @@ describe( "EdgeJs newline suppression", () => {
 	} );
 } );
 
+describe( "EdgeJs components", () => {
+	test( "@component with props", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addTemplate(
+				"sample.edge",
+				"@component('components/button', { text: 'Click', type: 'primary' })\n@end",
+				{}
+			);
+		} );
+
+		match( result.content, /<button class="primary">Click<\/button>/ );
+	} );
+
+	test( "@!component self-closing", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addTemplate(
+				"sample.edge",
+				"@!component('components/button', { text: 'Submit', type: 'secondary' })",
+				{}
+			);
+		} );
+
+		match( result.content, /<button class="secondary">Submit<\/button>/ );
+	} );
+} );
+
+describe( "EdgeJs slots", () => {
+	test( "Default slot", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addTemplate(
+				"sample.edge",
+				"@component('components/card')\n<p>Card content</p>\n@end",
+				{}
+			);
+		} );
+
+		match( result.content, /<div class="card">/ );
+		match( result.content, /<p>Card content<\/p>/ );
+	} );
+
+	test( "Named slots", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addTemplate(
+				"sample.edge",
+				"@component('components/modal')\n@slot('header')\n<h2>Title</h2>\n@end\n@slot('footer')\n<button>Close</button>\n@end\nBody content\n@end",
+				{}
+			);
+		} );
+
+		match( result.content, /<header><h2>Title<\/h2><\/header>/ );
+		match( result.content, /<main>Body content<\/main>/ );
+		match( result.content, /<footer><button>Close<\/button><\/footer>/ );
+	} );
+
+	test( "Optional slot not rendered when absent", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addTemplate(
+				"sample.edge",
+				"@component('components/modal')\n@slot('header')\n<h2>Title</h2>\n@end\nBody content\n@end",
+				{}
+			);
+		} );
+
+		match( result.content, /<header><h2>Title<\/h2><\/header>/ );
+		match( result.content, /<main>Body content<\/main>/ );
+		doesNotMatch( result.content, /<footer>/ );
+	} );
+
+	test( "Component receives template data", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addTemplate(
+				"sample.edge",
+				"@!component('components/button', { text: name, type: 'primary' })",
+				{ name: "David" }
+			);
+		} );
+
+		match( result.content, /<button class="primary">David<\/button>/ );
+	} );
+} );
+
 test( "EdgeJs front matter data access", async () => {
 	let results = await getTestResults( () => {} );
 

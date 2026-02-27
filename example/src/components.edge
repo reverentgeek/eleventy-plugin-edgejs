@@ -1,0 +1,56 @@
+---
+title: Components
+layout: layout.edge
+---
+<h1>Components &amp; Slots</h1>
+<p>Components are like LEGO bricks for your templates. Except you won't step on them at 2 AM. Probably.</p>
+
+<h2>Basic Component with Slot</h2>
+@component( 'components/alert', { type: 'info' } )
+  @slot( 'main' )
+    <p>This is an info alert. It's very informative. It's alerting you to information. Informatively.</p>
+  @end
+@end
+
+@component( 'components/alert', { type: 'warning' } )
+  @slot( 'main' )
+    <p>Warning: the following components contain slots. No, not the Vegas kind. You won't win money, but you <em>will</em> win clean, reusable templates.</p>
+  @end
+@end
+
+<h2>Component with Named Slots</h2>
+@component( 'components/card' )
+  @slot( 'header' )
+    Joke of the Day
+  @end
+
+  @slot( 'main' )
+    <p>Why do programmers always mix up Halloween and Christmas?</p>
+    <p>Because Oct 31 == Dec 25.</p>
+    <p><small>(If you got that joke, you're our kind of nerd.)</small></p>
+  @end
+
+  @slot( 'footer' )
+    <small>This card has a footer. It's not much, but it's honest work.</small>
+  @end
+@end
+
+<h2>Card without Footer (Optional Slot)</h2>
+@component( 'components/card' )
+  @slot( 'header' )
+    A Footerless Card
+  @end
+
+  @slot( 'main' )
+    <p>This card has no footer. Like a snake, it just... ends. The footer slot is optional, so the component quietly skips it. No errors, no drama. If only all relationships were this low-maintenance.</p>
+  @end
+@end
+
+<h2>Component Props</h2>
+<p>Pass data as the second argument to <code>@component</code>. Like passing notes in class, but to your templates:</p>
+@!component( 'components/button', { text: 'Ship It!', href: '#ship' } )
+@!component( 'components/button', { text: 'rm -rf (just kidding)', type: 'danger', href: '#yolo' } )
+
+<h2>Self-Closing Components</h2>
+<p>Use <code>@!component</code> (with <code>!</code>) for components that don't need slot content. Short, sweet, self-closing &mdash; like a good commit message:</p>
+@!component( 'components/button', { text: 'I close myself. I am independent.', href: '#self-close' } )

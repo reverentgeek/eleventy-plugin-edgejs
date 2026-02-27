@@ -1,0 +1,9 @@
+<div class="card">
+@if( $slots.header )
+  <div class="card-header">{{{ await $slots.header() }}}</div>
+@end
+  <div class="card-body">{{{ await $slots.main() }}}</div>
+@if( $slots.footer )
+  <div class="card-footer">{{{ await $slots.footer() }}}</div>
+@end
+</div>

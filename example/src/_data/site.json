@@ -1,4 +1,29 @@
 {
-  "title": "My Edge.js Site",
-  "description": "A demo site using Eleventy with Edge.js templates"
+  "title": "The Cutting Edge",
+  "description": "Living on the Edge(.js) with Eleventy. No safety net, just templates.",
+  "nav": [
+    { "url": "/", "label": "Home" },
+    { "url": "/about/", "label": "About" },
+    { "url": "/components/", "label": "Components" },
+    { "url": "/syntax/", "label": "Syntax" }
+  ],
+  "team": [
+    { "name": "Ada Lovelace", "role": "Original Gangster of Programming", "joke": "I wrote the first algorithm before it was cool." },
+    { "name": "Linus Torvalds", "role": "Kernel of Truth", "joke": "I don't always test my code, but when I do, I do it in production." },
+    { "name": "Grace Hopper", "role": "Bug Hunter Extraordinaire", "joke": "I found the first actual computer bug. It was a moth. Talk about a literal bug report." },
+    { "name": "Alan Turing", "role": "The OG Machine Learner", "joke": "I passed my own test before AI made it mainstream." }
+  ],
+  "dadJokes": [
+    "Why do programmers prefer dark mode? Because light attracts bugs.",
+    "A SQL query walks into a bar, sees two tables, and asks... 'Can I JOIN you?'",
+    "There are only 10 types of people in the world: those who understand binary and those who don't.",
+    "Why was the JavaScript developer sad? Because he didn't Node how to Express himself.",
+    "What's a programmer's favorite hangout place? Foo Bar.",
+    "Why do Java developers wear glasses? Because they can't C#."
+  ],
+  "features": {
+    "templating": "Edge.js v6 (sharper than a butter knife)",
+    "ssg": "Eleventy v3 (goes to 11)",
+    "runtime": "Node.js 22+ (old enough to rent a car)"
+  }
 }

@@ -1,4 +1,6 @@
 <nav>
-  <a href="/">Home</a>
-  <a href="/about/">About</a>
+  <a href="/" class="nav-logo"><img src="/images/rg-sticker-circle.png" alt="{{ site.title }}" width="40" height="40"></a>
+@each( item in site.nav )
+  <a href="{{ item.url }}" class="{{ html.classNames({ active: page.url === item.url }) }}">{{ item.label }}</a>
+@end
 </nav>

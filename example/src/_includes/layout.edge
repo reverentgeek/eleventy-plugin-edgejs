@@ -4,14 +4,41 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ title }} - {{ site.title }}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 48rem; margin: 0 auto; padding: 1rem; }
+    nav { display: flex; align-items: center; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid #ddd; margin-bottom: 2rem; }
+    nav a { text-decoration: none; color: #333; }
+    nav a.active { font-weight: bold; color: #0066cc; }
+    .nav-logo img { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ddd; }
+    .card { border: 1px solid #ddd; border-radius: 0.5rem; overflow: hidden; margin: 1rem 0; }
+    .card-header { background: #f5f5f5; padding: 0.75rem 1rem; font-weight: bold; }
+    .card-body { padding: 1rem; }
+    .card-footer { background: #f9f9f9; padding: 0.75rem 1rem; border-top: 1px solid #eee; }
+    .alert { padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+    .alert-info { background: #e7f3ff; border: 1px solid #b3d9ff; }
+    .alert-warning { background: #fff8e7; border: 1px solid #ffd966; }
+    .callout { padding: 1rem; border-left: 4px solid #0066cc; background: #f0f7ff; margin: 1rem 0; }
+    .callout-warning { border-left-color: #cc6600; background: #fff8f0; }
+    .btn { display: inline-block; padding: 0.5rem 1rem; border-radius: 0.25rem; text-decoration: none; color: white; }
+    .btn-primary { background: #0066cc; }
+    .btn-danger { background: #cc3333; }
+    footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; color: #666; }
+    code { background: #f0f0f0; padding: 0.125rem 0.25rem; border-radius: 0.25rem; }
+    pre { background: #f0f0f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+    dt { font-weight: bold; }
+    dd { margin: 0 0 0.5rem 1rem; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
+    th { background: #f5f5f5; }
+  </style>
 </head>
 <body>
-  @include('nav')
+@include('nav')
   <main>
     {{{ content }}}
   </main>
   <footer>
-    <p>&copy; {{ year() }}</p>
+    <p>&copy; {{ year() }} {{ siteName }} &mdash; {{ tagline }}</p>
   </footer>
 </body>
 </html>

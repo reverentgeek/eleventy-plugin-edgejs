@@ -1,0 +1,64 @@
+---
+title: Syntax
+layout: layout.edge
+isActive: true
+isVisible: false
+bio: "I used to write spaghetti code,\nbut now I write templates.\nHonestly, not that different."
+longText: "Edge.js is a modern async-first templating engine built for Node.js by the AdonisJS team. It's sharper than a senior developer's code review and twice as cutting."
+permalink: /{{ lowercase( title ) }}/
+---
+<h1>Edge.js Syntax</h1>
+<p>A guided tour of Edge.js syntax. Buckle up, it's going to be a wild ride. (Not really. It's templates. But we appreciate the enthusiasm.)</p>
+
+<h2>Comments</h2>
+{{-- This is a secret comment. If you can read this, you've viewed the source. You are now part of the inner circle. --}}
+<p>Check the page source &mdash; there's a secret message above this paragraph. Or IS there? (There is.)</p>
+
+<h2>Escaped Syntax</h2>
+<p>Sometimes you want to show mustaches <code>@{{ }}</code> without them being interpreted. Like wearing a fake mustache &mdash; decorative, not functional:</p>
+<pre>@{{ lookMaNoInterpolation }}</pre>
+
+<h2>html.classNames() Helper</h2>
+<p class="{{ html.classNames({ active: isActive, hidden: !isVisible, featured: true }) }}">
+  This paragraph has dynamic classes: <code>{{ html.classNames({ active: isActive, hidden: !isVisible, featured: true }) }}</code>.
+  It's basically CSS's version of "it's not a phase, mom."
+</p>
+
+<h2>truncate() Helper</h2>
+<p>Full text: {{ longText }}</p>
+<p>Truncated: {{ truncate( longText, 30 ) }}</p>
+<p><small>(Like a good developer, truncate() knows when to stop talking.)</small></p>
+
+<h2>nl2br() Helper</h2>
+<p>Raw text:</p>
+<pre>{{ bio }}</pre>
+<p>With nl2br() &mdash; turning \n into &lt;br&gt; since forever:</p>
+<p>{{{ nl2br( bio ) }}}</p>
+
+<h2>@include</h2>
+<p>Pull in another template file. It's like a teleporter for HTML:</p>
+@include( 'sidebar' )
+
+<h2>@includeIf (Conditional Include)</h2>
+<p>Like @include, but with trust issues. Only includes the partial if the condition is truthy:</p>
+@includeIf( isActive, 'sidebar' )
+
+<h2>Newline Suppression</h2>
+<p>The <code>~</code> tilde suppresses trailing newlines. It's the Marie Kondo of whitespace &mdash; if the newline doesn't spark joy, it's gone:</p>
+@if( isActive )~
+<span>Active (and tightly packed, thanks to ~)</span>
+@end
+
+<h2>Multi-line Expressions</h2>
+<p>{{
+  isActive
+    ? 'The system is active. All systems are go. Houston, we have no problems.'
+    : 'The system is inactive. Have you tried turning it off and on again?'
+}}</p>
+
+<h2>Permalink Compilation</h2>
+<p>This page uses a dynamic permalink: <code>/{{ lowercase( title ) }}/</code> which compiled to <code>{{ page.url }}</code>. Even URLs get the Edge.js treatment. No page left behind.</p>
+
+<h2>Plugin Globals Option</h2>
+<p>The <code>siteName</code> global was set via plugin options: <strong>{{ siteName }}</strong></p>
+<p>The <code>tagline</code> global too: <em>{{ tagline }}</em></p>

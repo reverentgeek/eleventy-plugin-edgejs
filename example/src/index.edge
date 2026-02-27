@@ -1,7 +1,37 @@
 ---
 title: Home
 layout: layout.edge
+greeting: Hello, World! (the only greeting programmers know)
+isLoggedIn: true
+userName: Captain Template
 ---
 <h1>{{ site.title }}</h1>
 <p>{{ site.description }}</p>
-<p>Welcome to the {{ upcase('home') }} page!</p>
+
+<h2>Variable Interpolation</h2>
+<p>Escaped output: {{ greeting }}</p>
+<p>Raw (unescaped) output: {{{ '<em>I am dangerously unescaped HTML. Fear me.</em>' }}}</p>
+
+<h2>Filters as Globals</h2>
+<p>Upcase: {{ upcase( 'whisper' ) }} ({{ upcase( 'whisper' ) }}ING IS JUST PASSIONATE TYPING)</p>
+<p>Lowercase: {{ lowercase( 'STOP YELLING' ) }}</p>
+<p>Reverse: {{ reverse( 'desserts' ) }} (it's "desserts" backwards... you're welcome)</p>
+
+<h2>Shortcodes as Globals</h2>
+<p>Current year: {{ year() }} (time flies when you're writing templates)</p>
+<p>Icon shortcode: {{{ icon( 'star' ) }}} Gold star for making it this far!</p>
+<p>Random dad joke: {{ dadjoke() }}</p>
+
+<h2>Conditionals</h2>
+@if( isLoggedIn )
+<p>Welcome back, {{ userName }}! Your code compiled on the first try. Just kidding. It never does.</p>
+@else
+<p>Please log in. Or don't. I'm a template, not a cop.</p>
+@end
+
+<h2>Ternary Expression</h2>
+<p>Status: {{ isLoggedIn ? 'Authenticated (promise we checked)' : 'Guest (but still welcome at the Foo Bar)' }}</p>
+
+<h2>Paired Shortcode</h2>
+{{{ callout( '<p>This content is wrapped by a paired shortcode. Think of it like a code burrito.</p>', 'info' ) }}}
+{{{ callout( '<p>Warning: dad jokes ahead. Proceed at your own risk. There is no try/catch for bad puns.</p>', 'warning' ) }}}
