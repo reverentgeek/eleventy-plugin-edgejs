@@ -1,0 +1,36 @@
+{
+	"name": "eleventy-plugin-edgejs",
+	"version": "1.0.0",
+	"description": "Eleventy plugin for Edge.js templating",
+	"type": "module",
+	"main": "edgeJsPlugin.js",
+	"scripts": {
+		"build:example": "npx @11ty/eleventy --input=example/src --config=example/eleventy.config.js",
+		"lint": "eslint . --fix",
+		"start:example": "npx @11ty/eleventy --input=example/src --config=example/eleventy.config.js --serve",
+		"test": "node --test"
+	},
+	"keywords": [
+		"eleventy",
+		"eleventy-plugin",
+		"edge",
+		"edgejs",
+		"template-engine"
+	],
+	"engines": {
+		"node": ">=22.0.0"
+	},
+	"author": "David Neal <david@reverentgeek.com> (https://reverentgeek.com)",
+	"license": "MIT",
+	"dependencies": {
+		"edge.js": "^6.2.0"
+	},
+	"peerDependencies": {
+		"@11ty/eleventy": "^3.0.0"
+	},
+	"devDependencies": {
+		"@11ty/eleventy": "^3.0.0",
+		"eslint": "^10.0.2",
+		"eslint-config-reverentgeek": "^7.0.3"
+	}
+}
