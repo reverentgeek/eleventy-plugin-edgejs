@@ -24,7 +24,7 @@ export default function ( eleventyConfig ) {
 			"There's no place like 127.0.0.1.",
 			"A programmer's wife tells him: 'Go to the store and get a loaf of bread. If they have eggs, get a dozen.' He comes home with 12 loaves of bread."
 		];
-		return jokes[ Math.floor( Math.random() * jokes.length ) ];
+		return jokes[Math.floor( Math.random() * jokes.length )];
 	} );
 
 	// Paired shortcodes (content is first argument)

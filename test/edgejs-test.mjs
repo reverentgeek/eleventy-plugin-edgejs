@@ -599,3 +599,150 @@ test( "EdgeJs library override option", async () => {
 
 	strictEqual( result.content.trim(), "<p>Override</p>" );
 } );
+
+describe( "EdgeJs null and undefined rendering", () => {
+	test( "Null renders as empty string in escaped output", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addTemplate( "sample.edge", "<p>{{ value }}</p>", {
+				value: null
+			} );
+		} );
+
+		strictEqual( result.content.trim(), "<p></p>" );
+	} );
+
+	test( "Undefined renders as empty string in escaped output", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addTemplate( "sample.edge", "<p>{{ value }}</p>", {
+				value: undefined
+			} );
+		} );
+
+		strictEqual( result.content.trim(), "<p></p>" );
+	} );
+
+	test( "Undefined variable renders as empty string", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addTemplate( "sample.edge", "<p>{{ nonexistent }}</p>", {} );
+		} );
+
+		strictEqual( result.content.trim(), "<p></p>" );
+	} );
+
+	test( "Null from filter renders as empty string", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addFilter( "returnsNull", () => null );
+
+			eleventyConfig.addTemplate( "sample.edge", "<p>{{ returnsNull() }}</p>", {} );
+		} );
+
+		strictEqual( result.content.trim(), "<p></p>" );
+	} );
+
+	test( "Falsy values other than null/undefined still render", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addTemplate(
+				"sample.edge",
+				"<p>{{ zero }}</p><p>{{ empty }}</p><p>{{ no }}</p>",
+				{ zero: 0, empty: "", no: false }
+			);
+		} );
+
+		match( result.content, /<p>0<\/p>/ );
+		match( result.content, /<p><\/p>/ );
+		match( result.content, /<p>false<\/p>/ );
+	} );
+} );
+
+describe( "EdgeJs auto-await async functions", () => {
+	test( "Async shortcode works without explicit await", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addShortcode( "asyncGreet", async ( name ) => {
+				return `Hi, ${ name }!`;
+			} );
+
+			eleventyConfig.addTemplate(
+				"sample.edge",
+				"<p>{{ asyncGreet(name) }}</p>",
+				{ name: "David" }
+			);
+		} );
+
+		strictEqual( result.content.trim(), "<p>Hi, David!</p>" );
+	} );
+
+	test( "Async filter works without explicit await", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addFilter( "asyncUpper", async ( str ) => {
+				return str.toUpperCase();
+			} );
+
+			eleventyConfig.addTemplate(
+				"sample.edge",
+				"<p>{{ asyncUpper(name) }}</p>",
+				{ name: "David" }
+			);
+		} );
+
+		strictEqual( result.content.trim(), "<p>DAVID</p>" );
+	} );
+
+	test( "Async shortcode with explicit await still works", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addShortcode( "asyncGreet", async ( name ) => {
+				return `Hi, ${ name }!`;
+			} );
+
+			eleventyConfig.addTemplate(
+				"sample.edge",
+				"<p>{{ await asyncGreet(name) }}</p>",
+				{ name: "David" }
+			);
+		} );
+
+		strictEqual( result.content.trim(), "<p>Hi, David!</p>" );
+	} );
+
+	test( "Multiple async calls in same template", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addShortcode( "asyncYear", async () => "2026" );
+			eleventyConfig.addShortcode( "asyncGreet", async name => `Hello, ${ name }` );
+
+			eleventyConfig.addTemplate(
+				"sample.edge",
+				"<p>{{ asyncGreet(name) }} - {{ asyncYear() }}</p>",
+				{ name: "David" }
+			);
+		} );
+
+		strictEqual( result.content.trim(), "<p>Hello, David - 2026</p>" );
+	} );
+
+	test( "Async function returning null renders as empty string", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addShortcode( "asyncNull", async () => null );
+
+			eleventyConfig.addTemplate(
+				"sample.edge",
+				"<p>{{ asyncNull() }}</p>",
+				{}
+			);
+		} );
+
+		strictEqual( result.content.trim(), "<p></p>" );
+	} );
+
+	test( "Async function returning HTML is escaped", async () => {
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addShortcode( "asyncHtml", async () => "<b>bold</b>" );
+
+			eleventyConfig.addTemplate(
+				"sample.edge",
+				"<p>{{ asyncHtml() }}</p>",
+				{}
+			);
+		} );
+
+		strictEqual( result.content.trim(), "<p>&lt;b&gt;bold&lt;/b&gt;</p>" );
+	} );
+} );

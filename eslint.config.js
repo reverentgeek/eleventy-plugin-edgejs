@@ -1,5 +1,5 @@
-import { defineConfig } from "eslint/config"; // eslint-disable-line n/no-unpublished-import
-import rg from "eslint-config-reverentgeek"; // eslint-disable-line n/no-unpublished-import
+import { defineConfig } from "eslint/config";
+import rg from "eslint-config-reverentgeek";
 
 export default defineConfig( {
 	extends: [ rg.configs["node-esm"] ],
