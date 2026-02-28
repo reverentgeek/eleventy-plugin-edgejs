@@ -43,6 +43,23 @@ Template.prototype.renderRaw = function ( contents, state, templatePath ) {
 	return result;
 };
 
+// Patch Template.prototype.reThrow to preserve the original error as .cause.
+// Edge.js discards the original error class when wrapping in EdgeError, which breaks
+// Eleventy's two-pass rendering system — it can't detect TemplateContentPrematureUseError
+// and fails instead of deferring the template to a second pass.
+const _originalReThrow = Template.prototype.reThrow;
+
+Template.prototype.reThrow = function ( error, filename, lineNumber ) {
+	try {
+		_originalReThrow.call( this, error, filename, lineNumber );
+	} catch ( wrapped ) {
+		if ( wrapped !== error ) {
+			wrapped.cause = error;
+		}
+		throw wrapped;
+	}
+};
+
 // Patch Template.prototype.render for includes/components that may also contain async calls
 const _originalRender = Template.prototype.render;
 
