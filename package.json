@@ -37,15 +37,15 @@
 	"homepage": "https://github.com/reverentgeek/eleventy-plugin-edgejs#readme",
 	"license": "MIT",
 	"dependencies": {
-		"edge.js": "^6.2.0"
+		"edge.js": "^6.5.1"
 	},
 	"peerDependencies": {
 		"@11ty/eleventy": "^3.0.0 || ^4.0.0"
 	},
 	"devDependencies": {
-		"@11ty/eleventy": "^3.0.0",
-		"eslint": "^10.0.2",
-		"eslint-config-reverentgeek": "^7.0.3"
+		"@11ty/eleventy": "^3.1.6",
+		"eslint": "^10.8.1",
+		"eslint-config-reverentgeek": "^7.1.17"
 	},
 	"allowScripts": {
 		"fsevents@2.3.3": true
