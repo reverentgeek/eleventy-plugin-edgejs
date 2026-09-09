@@ -45,7 +45,7 @@
 	"devDependencies": {
 		"@11ty/eleventy": "^3.1.6",
 		"eslint": "^10.9.1",
-		"eslint-config-reverentgeek": "^7.1.19"
+		"eslint-config-reverentgeek": "^7.1.20"
 	},
 	"allowScripts": {
 		"fsevents@2.3.3": true
