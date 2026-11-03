@@ -43,9 +43,9 @@
 		"@11ty/eleventy": "^3.0.0 || ^4.0.0"
 	},
 	"devDependencies": {
-		"@11ty/eleventy": "^3.1.6",
-		"eslint": "^10.11.0",
-		"eslint-config-reverentgeek": "^7.1.23"
+		"@11ty/eleventy": "^3.1.8",
+		"eslint": "^10.14.0",
+		"eslint-config-reverentgeek": "^7.1.27"
 	},
 	"allowScripts": {
 		"fsevents@2.3.3": true
