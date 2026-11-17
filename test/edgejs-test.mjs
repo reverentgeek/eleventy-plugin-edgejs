@@ -1,6 +1,9 @@
 import { strictEqual, match, doesNotMatch, rejects } from "node:assert";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { test, describe, mock, afterEach } from "node:test";
 import path from "node:path";
+import { setImmediate } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import { Edge } from "edge.js";
@@ -600,6 +603,77 @@ test( "EdgeJs library override option", async () => {
 	strictEqual( result.content.trim(), "<p>Override</p>" );
 } );
 
+test( "EdgeJs bridges functions registered by subsequent Eleventy plugins", async () => {
+	let [ result ] = await getTestResults( ( eleventyConfig ) => {
+		eleventyConfig.addPlugin( ( config ) => {
+			config.addFilter( "uppercase", value => value.toUpperCase() );
+			config.addShortcode( "greeting", () => "hello" );
+			config.addPairedShortcode( "wrap", value => `[${ value }]` );
+		} );
+		eleventyConfig.addTemplate( "sample.edge", "{{ wrap(uppercase(greeting())) }}" );
+	} );
+
+	strictEqual( result.content.trim(), "[HELLO]" );
+} );
+
+test( "EdgeJs preserves native rendering for direct Edge calls", async () => {
+	const edge = Edge.create();
+	const [ result ] = await getTestResults( ( eleventyConfig ) => {
+		eleventyConfig.addTemplate( "sample.edge", "{{ value }}", { value: null } );
+	}, { eleventyLibraryOverride: edge } );
+
+	strictEqual( result.content, "" );
+	strictEqual( edge.renderRawSync( "{{ value }}", { value: null } ), "null" );
+	strictEqual( edge.renderRawSync( "{{ value }}", { value: Promise.resolve( "hello" ) } ), "[object Promise]" );
+	strictEqual( await Edge.create().renderRaw( "{{ value }}", { value: null } ), "null" );
+} );
+
+test( "EdgeJs loads includes from a directory containing # and refreshes cached components between builds", async ( t ) => {
+	const root = await mkdtemp( path.join( tmpdir(), "eleventy-edgejs-test-" ) );
+	t.after( () => rm( root, { recursive: true, force: true } ) );
+
+	const inputDir = path.join( root, "site#test" );
+	const includesDir = path.join( inputDir, "_includes" );
+	const componentPath = path.join( includesDir, "components", "status.edge" );
+	await mkdir( path.dirname( componentPath ), { recursive: true } );
+	await writeFile( path.join( inputDir, "index.edge" ), "@include('message')\n@!component('components/status')" );
+	await writeFile( path.join( includesDir, "message.edge" ), "included" );
+	await writeFile( componentPath, "before" );
+
+	const elev = new Eleventy( inputDir, path.join( root, "_site" ), {
+		config: eleventyConfig => eleventyConfig.addPlugin( edgeJsPlugin, { cache: true } )
+	} );
+	const [ first ] = await elev.toJSON();
+	strictEqual( first.content.trim(), "included\nbefore" );
+
+	await writeFile( componentPath, "after" );
+	const [ second ] = await elev.toJSON();
+	strictEqual( second.content.trim(), "included\nafter" );
+
+	const edge = Edge.create( { cache: true } ).mount( includesDir );
+	await edge.render( "components/status" );
+	const override = new Eleventy( inputDir, path.join( root, "_site" ), {
+		config: eleventyConfig => eleventyConfig.addPlugin( edgeJsPlugin, { eleventyLibraryOverride: edge } )
+	} );
+	await override.toJSON();
+	await writeFile( componentPath, "updated override" );
+	const [ third ] = await override.toJSON();
+	strictEqual( third.content.trim(), "included\nupdated override" );
+} );
+
+test( "EdgeJs preserves Eleventy's retry when a template reads content before it is ready", async () => {
+	const results = await getTestResults( ( eleventyConfig ) => {
+		eleventyConfig.addShortcode( "waitForTurn", async () => {
+			await setImmediate();
+			return "source content";
+		} );
+		eleventyConfig.addTemplate( "reader.edge", "{{ collections.all.find(item => item.url === '/source/').templateContent }}" );
+		eleventyConfig.addTemplate( "source.edge", "{{ await waitForTurn() }}" );
+	} );
+
+	strictEqual( results.find( result => result.url === "/reader/" ).content.trim(), "source content" );
+} );
+
 describe( "EdgeJs null and undefined rendering", () => {
 	test( "Null renders as empty string in escaped output", async () => {
 		let [ result ] = await getTestResults( ( eleventyConfig ) => {
@@ -745,6 +819,17 @@ describe( "EdgeJs auto-await async functions", () => {
 
 		strictEqual( result.content.trim(), "<p>&lt;b&gt;bold&lt;/b&gt;</p>" );
 	} );
+
+	test( "Eleventy receives an async rejection even when rendering yields before interpolation finishes", async () => {
+		const failure = new Error( "shortcode failed" );
+		await rejects( getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addShortcode( "broken", async () => {
+				throw failure;
+			} );
+			eleventyConfig.addShortcode( "waitForTurn", setImmediate );
+			eleventyConfig.addTemplate( "sample.edge", "{{ broken() }}{{ await waitForTurn() }}" );
+		} ), error => error.originalError === failure );
+	} );
 } );
 
 describe( "EdgeJs warns when page data shadows a bridged function", () => {
@@ -789,13 +874,42 @@ describe( "EdgeJs warns when page data shadows a bridged function", () => {
 
 		let [ result ] = await getTestResults( ( eleventyConfig ) => {
 			eleventyConfig.addShortcode( "image", src => `<img src="${ src }">` );
-			eleventyConfig.addTemplate( "sample.edge", "<p>{{ image }}</p><p>{{ post.image() }}</p>", {
+			eleventyConfig.addTemplate( "sample.edge", "<p>image('file')</p><p>{{ image }}</p><p>{{ post.image() }}</p>", {
 				image: "/cover.png",
 				post: { image: () => "ok" }
 			} );
 		} );
 
-		strictEqual( result.content.trim(), "<p>/cover.png</p><p>ok</p>" );
+		strictEqual( result.content.trim(), "<p>image('file')</p><p>/cover.png</p><p>ok</p>" );
+		strictEqual( warn.mock.callCount(), 0 );
+	} );
+
+	test( "Warns with the page and include paths when a partial calls a hidden shortcode", async () => {
+		let warn = captureWarnings();
+		const edge = Edge.create();
+		edge.registerTemplate( "shadowed.edge", { template: "{{ image('file') }}" } );
+
+		await rejects( getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addShortcode( "image", () => "image" );
+			eleventyConfig.addTemplate( "sample.edge", "@include('shadowed.edge')", { image: "/cover.png" } );
+		}, { eleventyLibraryOverride: edge } ) );
+
+		strictEqual( warn.mock.callCount(), 1 );
+		match( warn.mock.calls[0].arguments[0], /sample\.edge \(rendering shadowed\.edge\) calls image\(\)/ );
+	} );
+
+	test( "Does not attribute a component's shadowed shortcode to page data", async () => {
+		let warn = captureWarnings();
+		const edge = Edge.create();
+		edge.registerTemplate( "components/shadowed.edge", { template: "{{ image('file') }}" } );
+
+		await rejects( getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addShortcode( "image", () => "image" );
+			eleventyConfig.addTemplate( "sample.edge", "@!component('components/shadowed.edge', { image: '/cover.png' })", {
+				image: "/cover.png"
+			} );
+		}, { eleventyLibraryOverride: edge } ) );
+
 		strictEqual( warn.mock.callCount(), 0 );
 	} );
 

@@ -1,102 +1,30 @@
-import { Edge, Template } from "edge.js";
+import { resolve } from "node:path";
+import { Edge } from "edge.js";
 
-// Sentinel prefix for async placeholders (uses null byte to avoid collisions with real content)
 const ASYNC_PREFIX = "\0__EDGE_ASYNC_";
 const ASYNC_SUFFIX = "__\0";
 const ASYNC_PATTERN = /\0__EDGE_ASYNC_(\d+)__\0/g;
 
-// Patch Template.prototype.escape to:
-// 1. Render null/undefined as empty string (matches Nunjucks, Handlebars, Liquid, Mustache)
-// 2. Detect unresolved Promises and defer resolution via placeholders
-const _originalEscape = Template.prototype.escape;
+const RENDER_SETUP_KEY = "eleventy-plugin-edgejs.renderSetup";
+const RENDER_SETUP = Symbol.for( RENDER_SETUP_KEY );
+const preparedEdges = new WeakSet();
 
-Template.prototype.escape = function ( input ) {
-	// Convert null/undefined to empty string instead of "null"/"undefined"
-	if ( input == null ) return "";
-
-	// Detect unresolved Promises from async filters/shortcodes
-	if ( typeof input === "object" && typeof input.then === "function" ) {
-		if ( !this.__pendingPromises ) {
-			this.__pendingPromises = [];
-		}
-		const idx = this.__pendingPromises.length;
-		this.__pendingPromises.push( input );
-		return `${ ASYNC_PREFIX }${ idx }${ ASYNC_SUFFIX }`;
+function prepareEdge( edge ) {
+	if ( preparedEdges.has( edge ) ) {
+		return;
 	}
+	preparedEdges.add( edge );
 
-	return _originalEscape.call( this, input );
-};
-
-// Patch Template.prototype.renderRaw to resolve async placeholders after rendering
-const _originalRenderRaw = Template.prototype.renderRaw;
-
-Template.prototype.renderRaw = function ( contents, state, templatePath ) {
-	this.__pendingPromises = [];
-
-	const result = _originalRenderRaw.call( this, contents, state, templatePath );
-
-	// Async mode returns a Promise
-	if ( result && typeof result.then === "function" ) {
-		return result.then( output => resolveAsyncPlaceholders( this, output ) );
-	}
-
-	return result;
-};
-
-// Patch Template.prototype.reThrow to preserve the original error as .cause.
-// Edge.js discards the original error class when wrapping in EdgeError, which breaks
-// Eleventy's two-pass rendering system — it can't detect TemplateContentPrematureUseError
-// and fails instead of deferring the template to a second pass.
-const _originalReThrow = Template.prototype.reThrow;
-
-Template.prototype.reThrow = function ( error, filename, lineNumber ) {
-	try {
-		_originalReThrow.call( this, error, filename, lineNumber );
-	} catch ( wrapped ) {
-		if ( wrapped !== error ) {
-			wrapped.cause = error;
-		}
-		throw wrapped;
-	}
-};
-
-// Patch Template.prototype.render for includes/components that may also contain async calls
-const _originalRender = Template.prototype.render;
-
-Template.prototype.render = function ( template, state ) {
-	if ( !this.__pendingPromises ) {
-		this.__pendingPromises = [];
-	}
-
-	const result = _originalRender.call( this, template, state );
-
-	if ( result && typeof result.then === "function" ) {
-		return result.then( output => resolveAsyncPlaceholders( this, output ) );
-	}
-
-	return result;
-};
-
-async function resolveAsyncPlaceholders( template, output ) {
-	if ( !template.__pendingPromises || template.__pendingPromises.length === 0 ) {
-		return output;
-	}
-
-	const resolved = await Promise.all( template.__pendingPromises );
-	template.__pendingPromises = [];
-
-	output = output.replace( ASYNC_PATTERN, ( _, idx ) => {
-		const val = resolved[parseInt( idx )];
-		if ( val == null ) return "";
-		return _originalEscape.call( template, val );
+	edge.processor.process( "compiled", ( { compiled } ) => {
+		// Edge creates a fresh Template for each render and shares it with its partials
+		// and components. Only Eleventy renders supply the setup callback.
+		const setup = `state[Symbol.for(${ JSON.stringify( RENDER_SETUP_KEY ) })]?.(template, state);\n`;
+		// Pass the state where the error occurred so component props aren't mistaken for page data.
+		return setup + compiled.replace(
+			/^template\.reThrow\(error, \$filename, \$lineNumber\);$/gm,
+			"template.reThrow(error, $filename, $lineNumber, state);"
+		);
 	} );
-
-	// Check if resolving introduced new placeholders (unlikely but possible with nested async)
-	if ( ASYNC_PATTERN.test( output ) ) {
-		return resolveAsyncPlaceholders( template, output );
-	}
-
-	return output;
 }
 
 export default function edgeJsPlugin( eleventyConfig, options = {} ) {
@@ -113,97 +41,125 @@ export default function edgeJsPlugin( eleventyConfig, options = {} ) {
 
 	eleventyConfig.addTemplateFormats( "edge" );
 
-	// Create Edge instance eagerly so it's available for permalink compilation
-	let edge = options.eleventyLibraryOverride || Edge.create( { cache: options.cache } );
+	const edge = options.eleventyLibraryOverride || Edge.create( { cache: options.cache } );
+	prepareEdge( edge );
+	const cachePaths = new Set();
+	const bridgedFunctions = new Map();
+	const warnedNames = new Set();
 
-	// Track bridged functions (name -> kind) so we can warn when page data shadows them
-	let bridgedFunctions = new Map();
-
-	function registerGlobal( name, value, kind ) {
-		edge.global( name, value );
-		if ( typeof value === "function" ) {
-			bridgedFunctions.set( name, kind );
-		} else {
-			bridgedFunctions.delete( name );
-		}
-	}
-
-	// Bridge Eleventy filters as Edge globals
-	for ( let [ name, callback ] of Object.entries( eleventyConfig.getFilters() ) ) {
-		registerGlobal( name, callback, "filter" );
-	}
-
-	// Bridge Eleventy shortcodes as Edge globals
-	for ( let [ name, callback ] of Object.entries( eleventyConfig.getShortcodes() ) ) {
-		registerGlobal( name, callback, "shortcode" );
-	}
-
-	// Bridge Eleventy paired shortcodes as Edge globals
-	// Content is passed as the first argument, matching the Handlebars plugin pattern
-	for ( let [ name, callback ] of Object.entries( eleventyConfig.getPairedShortcodes() ) ) {
-		registerGlobal( name, callback, "paired shortcode" );
-	}
-
-	// Register user-provided globals
-	for ( let [ name, value ] of Object.entries( options.globals ) ) {
-		registerGlobal( name, value, "global" );
-	}
-
-	let warnedNames = new Set();
-
-	// Edge resolves page data before globals, so a data key like `image` hides an
-	// `image` shortcode and calling it fails with "image is not a function".
-	// Find the bridged functions this template calls, so we only warn when it matters.
-	function getCalledFunctions( str ) {
-		let called = [];
-		for ( let [ name, kind ] of bridgedFunctions ) {
-			let escaped = name.replace( /[.*+?^${}()|[\]\\]/g, "\\$&" );
-			if ( new RegExp( `(?<![\\w$.])${ escaped }\\s*\\(` ).test( str ) ) {
-				called.push( [ name, kind ] );
+	function registerGlobals( globals, kind ) {
+		for ( const [ name, value ] of Object.entries( globals ) ) {
+			edge.global( name, value );
+			if ( typeof value === "function" ) {
+				bridgedFunctions.set( name, kind );
+			} else {
+				bridgedFunctions.delete( name );
 			}
 		}
-		return called;
 	}
 
-	function warnOnShadowedFunctions( calledFunctions, data, inputPath ) {
-		if ( !data ) return;
-		for ( let [ name, kind ] of calledFunctions ) {
-			if ( warnedNames.has( name ) || !Object.hasOwn( data, name ) || typeof data[name] === "function" ) {
-				continue;
-			}
-			warnedNames.add( name );
-			let pagePath = data.page?.inputPath;
-			let location = pagePath && pagePath !== inputPath ? `${ pagePath } (rendering ${ inputPath })` : inputPath;
-			console.warn(
-				`[eleventy-plugin-edgejs] ${ location } calls ${ name }(), but the page data also defines "${ name }", which hides the "${ name }" ${ kind }. `
-				+ `Edge looks up page data before globals, so this call will fail. Rename the data key or the ${ kind }.`
-			);
+	// All Eleventy plugins have registered their filters and shortcodes by this event.
+	eleventyConfig.on( "eleventy.config", ( { directories } ) => {
+		registerGlobals( eleventyConfig.getFilters(), "filter" );
+		registerGlobals( eleventyConfig.getShortcodes(), "shortcode" );
+		registerGlobals( eleventyConfig.getPairedShortcodes(), "paired shortcode" );
+		registerGlobals( options.globals, "global" );
+
+		if ( directories?.includes ) {
+			edge.mount( resolve( directories.includes ) );
 		}
+	} );
+
+	eleventyConfig.on( "eleventy.before", () => {
+		warnedNames.clear();
+		// Reuse compiled components within a build and reload them for the next build.
+		for ( const path of cachePaths ) {
+			edge.asyncCompiler.cacheManager.delete( path );
+		}
+		cachePaths.clear();
+	} );
+
+	function warnOnShadowedFunction( error, filename, data ) {
+		const name = error instanceof TypeError && /^state\.([^ .]+) is not a function$/.exec( error.message )?.[1];
+		const kind = bridgedFunctions.get( name );
+		if ( !kind || warnedNames.has( name ) || !Object.hasOwn( data, name ) || typeof data[name] === "function" ) {
+			return;
+		}
+
+		warnedNames.add( name );
+		const pagePath = data.page?.inputPath;
+		const location = pagePath && pagePath !== filename ? `${ pagePath } (rendering ${ filename })` : filename;
+		console.warn(
+			`[eleventy-plugin-edgejs] ${ location } calls ${ name }(), but the page data also defines "${ name }", which hides the "${ name }" ${ kind }. `
+			+ `Edge looks up page data before globals. Rename the data key or the ${ kind }.`
+		);
+	}
+
+	async function render( contents, data, inputPath ) {
+		const pending = [];
+		let escapeValue;
+
+		const output = await edge.renderRaw( contents, {
+			...data,
+			[RENDER_SETUP]( template, pageState ) {
+				delete pageState[RENDER_SETUP];
+				const { compileComponent, escape, reThrow } = template;
+				if ( edge.asyncCompiler.cacheManager.enabled ) {
+					template.compileComponent = ( path ) => {
+						// An override can already have a component in its cache.
+						cachePaths.add( edge.loader.makePath( path ) );
+						return compileComponent.call( template, path );
+					};
+				}
+				escapeValue = input => input == null ? "" : escape.call( template, input );
+				template.escape = ( input ) => {
+					if ( input && typeof input === "object" && typeof input.then === "function" ) {
+						const promise = Promise.resolve( input );
+						// Observe rejections before rendering yields to another async expression.
+						promise.catch( () => {} );
+						const index = pending.push( promise ) - 1;
+						return `${ ASYNC_PREFIX }${ index }${ ASYNC_SUFFIX }`;
+					}
+					return escapeValue( input );
+				};
+
+				template.reThrow = ( error, filename, lineNumber, state ) => {
+					try {
+						reThrow.call( template, error, filename, lineNumber );
+					} catch ( wrapped ) {
+						if ( wrapped !== error ) {
+							// Eleventy needs the original error to retry templates that read
+							// another template's content before it has been rendered.
+							wrapped.cause = error;
+							if ( state === pageState ) {
+								warnOnShadowedFunction( error, filename, data );
+							}
+						}
+						throw wrapped;
+					}
+				};
+			}
+		}, inputPath );
+
+		if ( pending.length === 0 ) {
+			return output;
+		}
+		const values = await Promise.all( pending );
+		return output.replace( ASYNC_PATTERN, ( token, index ) => {
+			if ( Number( index ) >= values.length ) {
+				return token;
+			}
+			return escapeValue( values[index] );
+		} );
 	}
 
 	eleventyConfig.addExtension( "edge", {
-		init: async function () {
-			// Mount _includes directory for @include/@component support
-			let includesDir = this.config.directories?.includes;
-			if ( includesDir ) {
-				edge.mount( new URL( includesDir, `file://${ process.cwd() }/` ) );
-			}
-		},
-
-		compile: ( str, inputPath ) => {
-			let calledFunctions = getCalledFunctions( str );
-			return async ( data ) => {
-				warnOnShadowedFunctions( calledFunctions, data, inputPath );
-				return edge.renderRaw( str, data );
-			};
-		},
+		compile: ( contents, inputPath ) => data => render( contents, data, inputPath ),
 
 		compileOptions: {
-			permalink: ( contents ) => {
+			permalink: ( contents, inputPath ) => {
 				if ( typeof contents === "string" ) {
-					return async ( data ) => {
-						return edge.renderRaw( contents, data );
-					};
+					return data => render( contents, data, inputPath );
 				}
 				return contents;
 			}

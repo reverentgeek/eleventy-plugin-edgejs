@@ -31,7 +31,7 @@ Create `.edge` files in your project and they'll be processed by Edge.js automat
 
 ```js
 eleventyConfig.addPlugin( edgeJsPlugin, {
-  // Enable template caching (default: false)
+  // Reuse compiled components within a build (default: false)
   cache: false,
 
   // Provide your own Edge.js instance
@@ -77,7 +77,7 @@ image: /images/cover.jpg
 {{{ await image( "/images/photo.jpg", "A photo" ) }}}
 ```
 
-To fix it, rename either the data key or the shortcode (for example, `coverImage` or `responsiveImage`). The plugin logs a warning when a template calls a filter or shortcode that page data is hiding, naming the page and the template that made the call.
+To fix it, rename either the data key or the shortcode (for example, `coverImage` or `responsiveImage`). When a call fails because page data hides a filter or shortcode, the plugin logs a warning with the page path and the path of the template, layout, or included partial where the call occurred.
 
 ## Edge.js Template Syntax
 
