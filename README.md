@@ -291,8 +291,8 @@ This repository includes a working Eleventy site with more template and syntax e
 ```sh
 git clone https://github.com/reverentgeek/eleventy-plugin-edgejs.git
 cd eleventy-plugin-edgejs
-npm install
-npm run start:example
+pnpm install
+pnpm start:example
 ```
 
 This starts a local dev server so you can browse the examples and experiment with Edge.js templates.
