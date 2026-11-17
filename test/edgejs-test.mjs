@@ -1,5 +1,5 @@
-import { strictEqual, match, doesNotMatch } from "node:assert";
-import { test, describe } from "node:test";
+import { strictEqual, match, doesNotMatch, rejects } from "node:assert";
+import { test, describe, mock, afterEach } from "node:test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -744,5 +744,72 @@ describe( "EdgeJs auto-await async functions", () => {
 		} );
 
 		strictEqual( result.content.trim(), "<p>&lt;b&gt;bold&lt;/b&gt;</p>" );
+	} );
+} );
+
+describe( "EdgeJs warns when page data shadows a bridged function", () => {
+	afterEach( () => mock.restoreAll() );
+
+	function captureWarnings() {
+		return mock.method( console, "warn", () => {} );
+	}
+
+	test( "Warns when a template calls a shortcode hidden by page data", async () => {
+		let warn = captureWarnings();
+
+		await rejects( getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addShortcode( "image", src => `<img src="${ src }">` );
+			eleventyConfig.addTemplate( "sample.edge", "{{{ image(\"/a.png\") }}}", {
+				image: "/cover.png"
+			} );
+		} ) );
+
+		strictEqual( warn.mock.callCount(), 1 );
+		match( warn.mock.calls[0].arguments[0], /calls image\(\).*hides the "image" shortcode/ );
+	} );
+
+	test( "Warns with the page path when the call is in a layout", async () => {
+		let warn = captureWarnings();
+
+		await rejects( getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addShortcode( "image", src => `<img src="${ src }">` );
+			eleventyConfig.addTemplate( "_includes/layouts/project.edge", "{{{ content }}}{{{ image(\"/a.png\") }}}" );
+			eleventyConfig.addTemplate( "project.md", "# Hello", {
+				layout: "layouts/project.edge",
+				image: "/cover.png"
+			} );
+		} ) );
+
+		strictEqual( warn.mock.callCount(), 1 );
+		match( warn.mock.calls[0].arguments[0], /project\.md \(rendering .*project\.edge\) calls image\(\)/ );
+	} );
+
+	test( "Does not warn when the shadowed function is not called", async () => {
+		let warn = captureWarnings();
+
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addShortcode( "image", src => `<img src="${ src }">` );
+			eleventyConfig.addTemplate( "sample.edge", "<p>{{ image }}</p><p>{{ post.image() }}</p>", {
+				image: "/cover.png",
+				post: { image: () => "ok" }
+			} );
+		} );
+
+		strictEqual( result.content.trim(), "<p>/cover.png</p><p>ok</p>" );
+		strictEqual( warn.mock.callCount(), 0 );
+	} );
+
+	test( "Does not warn when page data replaces the function with another function", async () => {
+		let warn = captureWarnings();
+
+		let [ result ] = await getTestResults( ( eleventyConfig ) => {
+			eleventyConfig.addFilter( "upcase", str => str.toUpperCase() );
+			eleventyConfig.addTemplate( "sample.edge", "<p>{{ upcase(\"a\") }}</p>", {
+				upcase: str => `custom-${ str }`
+			} );
+		} );
+
+		strictEqual( result.content.trim(), "<p>custom-a</p>" );
+		strictEqual( warn.mock.callCount(), 0 );
 	} );
 } );

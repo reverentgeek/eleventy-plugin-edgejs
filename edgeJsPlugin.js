@@ -116,25 +116,69 @@ export default function edgeJsPlugin( eleventyConfig, options = {} ) {
 	// Create Edge instance eagerly so it's available for permalink compilation
 	let edge = options.eleventyLibraryOverride || Edge.create( { cache: options.cache } );
 
+	// Track bridged functions (name -> kind) so we can warn when page data shadows them
+	let bridgedFunctions = new Map();
+
+	function registerGlobal( name, value, kind ) {
+		edge.global( name, value );
+		if ( typeof value === "function" ) {
+			bridgedFunctions.set( name, kind );
+		} else {
+			bridgedFunctions.delete( name );
+		}
+	}
+
 	// Bridge Eleventy filters as Edge globals
 	for ( let [ name, callback ] of Object.entries( eleventyConfig.getFilters() ) ) {
-		edge.global( name, callback );
+		registerGlobal( name, callback, "filter" );
 	}
 
 	// Bridge Eleventy shortcodes as Edge globals
 	for ( let [ name, callback ] of Object.entries( eleventyConfig.getShortcodes() ) ) {
-		edge.global( name, callback );
+		registerGlobal( name, callback, "shortcode" );
 	}
 
 	// Bridge Eleventy paired shortcodes as Edge globals
 	// Content is passed as the first argument, matching the Handlebars plugin pattern
 	for ( let [ name, callback ] of Object.entries( eleventyConfig.getPairedShortcodes() ) ) {
-		edge.global( name, callback );
+		registerGlobal( name, callback, "paired shortcode" );
 	}
 
 	// Register user-provided globals
 	for ( let [ name, value ] of Object.entries( options.globals ) ) {
-		edge.global( name, value );
+		registerGlobal( name, value, "global" );
+	}
+
+	let warnedNames = new Set();
+
+	// Edge resolves page data before globals, so a data key like `image` hides an
+	// `image` shortcode and calling it fails with "image is not a function".
+	// Find the bridged functions this template calls, so we only warn when it matters.
+	function getCalledFunctions( str ) {
+		let called = [];
+		for ( let [ name, kind ] of bridgedFunctions ) {
+			let escaped = name.replace( /[.*+?^${}()|[\]\\]/g, "\\$&" );
+			if ( new RegExp( `(?<![\\w$.])${ escaped }\\s*\\(` ).test( str ) ) {
+				called.push( [ name, kind ] );
+			}
+		}
+		return called;
+	}
+
+	function warnOnShadowedFunctions( calledFunctions, data, inputPath ) {
+		if ( !data ) return;
+		for ( let [ name, kind ] of calledFunctions ) {
+			if ( warnedNames.has( name ) || !Object.hasOwn( data, name ) || typeof data[name] === "function" ) {
+				continue;
+			}
+			warnedNames.add( name );
+			let pagePath = data.page?.inputPath;
+			let location = pagePath && pagePath !== inputPath ? `${ pagePath } (rendering ${ inputPath })` : inputPath;
+			console.warn(
+				`[eleventy-plugin-edgejs] ${ location } calls ${ name }(), but the page data also defines "${ name }", which hides the "${ name }" ${ kind }. `
+				+ `Edge looks up page data before globals, so this call will fail. Rename the data key or the ${ kind }.`
+			);
+		}
 	}
 
 	eleventyConfig.addExtension( "edge", {
@@ -146,8 +190,10 @@ export default function edgeJsPlugin( eleventyConfig, options = {} ) {
 			}
 		},
 
-		compile: ( str ) => {
+		compile: ( str, inputPath ) => {
+			let calledFunctions = getCalledFunctions( str );
 			return async ( data ) => {
+				warnOnShadowedFunctions( calledFunctions, data, inputPath );
 				return edge.renderRaw( str, data );
 			};
 		},

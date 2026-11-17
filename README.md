@@ -62,6 +62,23 @@ eleventyConfig.addShortcode( "year", () => `${ new Date().getFullYear() }` );
 
 Paired shortcodes also work as globals. The content is passed as the first argument.
 
+#### Name Collisions with Page Data
+
+Edge.js looks up page data before globals. If a page's data (front matter, directory data, or global data) has a key with the same name as a filter or shortcode, the data value wins inside that page and any layout it uses. For example, this front matter hides an `image` shortcode:
+
+```yaml
+---
+image: /images/cover.jpg
+---
+```
+
+```edge
+{{-- Fails with "image is not a function" --}}
+{{{ await image( "/images/photo.jpg", "A photo" ) }}}
+```
+
+To fix it, rename either the data key or the shortcode (for example, `coverImage` or `responsiveImage`). The plugin logs a warning when a template calls a filter or shortcode that page data is hiding, naming the page and the template that made the call.
+
 ## Edge.js Template Syntax
 
 ### Variable Interpolation
