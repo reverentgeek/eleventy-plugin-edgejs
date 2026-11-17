@@ -1,0 +1,2 @@
+minimumReleaseAgeExclude:
+  - eslint-config-reverentgeek
