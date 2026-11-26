@@ -1,2 +1,3 @@
 minimumReleaseAgeExclude:
   - eslint-config-reverentgeek
+  - pnpm@12.24.0
